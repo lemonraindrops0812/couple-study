@@ -21,9 +21,10 @@ export function ExerciseSummary({ data }: Props) {
       </div>
 
       {!hasData ? (
-        <div className="text-center py-6">
-          <Dumbbell size={24} className="mx-auto mb-2 text-gray-300" />
-          <p className="text-xs text-gray-400">今天还没有运动记录</p>
+        <div className="text-center py-5">
+          <Dumbbell size={28} className="mx-auto mb-2 text-gray-200" />
+          <p className="text-xs text-gray-400 mb-1">还没有运动记录</p>
+          <button onClick={() => navigate('/exercise')} className="text-[11px] text-teal-600 hover:text-teal-700">开始今天的训练 →</button>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">

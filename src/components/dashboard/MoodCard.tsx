@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../../hooks/useAuth'
+import { useMood } from '../../hooks/useMood'
 import { Smile, Frown, Meh, Heart } from 'lucide-react'
 
 const moodOptions = [
@@ -10,76 +10,78 @@ const moodOptions = [
 ]
 
 export function MoodCard() {
-  const { user, partner } = useAuth()
-  const [mood, setMood] = useState<number | null>(null)
-  const [partnerMood] = useState<number | null>(null)
-  const [note, setNote] = useState('')
-  const [saved, setSaved] = useState(false)
-  const today = new Date().toISOString().split('T')[0]
+  const { myMood, partnerMood, saveMood } = useMood()
+  const [note, setNote] = useState(myMood?.note || '')
+  const [editing, setEditing] = useState(false)
 
-  useEffect(() => {
-    if (!user) return
-    // Load today's moods (mock - no table yet, so gracefully empty)
-    // When mood table exists, uncomment below:
-    // supabase.from('mood_entries').select('*').eq('date', today)
-    //   .then(({ data }) => {
-    //     const mine = (data as MoodEntry[])?.find(m => m.user_id === user.id)
-    //     if (mine) { setMood(mine.mood); setNote(mine.note); setSaved(true) }
-    //     if (partner) {
-    //       const theirs = (data as MoodEntry[])?.find(m => m.user_id === partner.id)
-    //       if (theirs) setPartnerMood(theirs.mood)
-    //     }
-    //   })
-  }, [user, partner, today])
+  useEffect(() => { setNote(myMood?.note || '') }, [myMood])
 
-  const saveMood = async (value: number) => {
-    setMood(value)
-    setSaved(true)
-    // When mood table exists: upsert to mood_entries
+  const handleSave = (value: number) => {
+    saveMood(value, note)
+    setEditing(false)
   }
 
-  const MoodIcon = moodOptions.find(m => m.value === mood)?.icon
+  const MyIcon = moodOptions.find(m => m.value === myMood?.mood)
+  const PartnerIcon = moodOptions.find(m => m.value === partnerMood?.mood)
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5">
       <h3 className="text-sm font-semibold text-gray-700 mb-4">今日心情</h3>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {/* Me */}
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        {/* 我 */}
         <div className="text-center">
-          <p className="text-[10px] text-gray-400 mb-2">{user?.nickname || '我'}</p>
-          {saved ? (
-            MoodIcon && <MoodIcon size={28} className={`mx-auto mb-1 ${moodOptions.find(m => m.value === mood)?.color}`} />
+          <p className="text-[10px] text-gray-400 mb-2">我</p>
+          {myMood ? (
+            editing ? (
+              <div className="space-y-1.5">
+                <div className="flex justify-center gap-1.5">
+                  {moodOptions.map(m => (
+                    <button key={m.value} onClick={() => { handleSave(m.value); setEditing(false) }}
+                      className={`p-1 rounded hover:bg-gray-100 transition-colors ${myMood.mood === m.value ? 'ring-2 ring-teal-300 rounded-full' : ''}`}>
+                      <m.icon size={20} className={myMood.mood === m.value ? m.color : 'text-gray-300'} />
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setEditing(false)} className="text-[10px] text-gray-400 hover:text-gray-600">取消</button>
+              </div>
+            ) : (
+              <div>
+                {MyIcon && <MyIcon.icon size={28} className={`mx-auto mb-1 ${MyIcon.color}`} />}
+                <p className="text-[10px] text-gray-400">{myMood.note || ''}</p>
+                <button onClick={() => setEditing(true)} className="text-[10px] text-teal-600 hover:text-teal-700 mt-1">修改</button>
+              </div>
+            )
           ) : (
             <div className="flex justify-center gap-1.5">
               {moodOptions.map(m => (
-                <button key={m.value} onClick={() => saveMood(m.value)} className="p-1 rounded hover:bg-gray-100 transition-colors">
-                  <m.icon size={18} className="text-gray-300 hover:text-gray-600" />
+                <button key={m.value} onClick={() => handleSave(m.value)} className="p-1 rounded hover:bg-gray-100 transition-colors">
+                  <m.icon size={20} className="text-gray-300 hover:text-gray-600" />
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Partner */}
+        {/* 对方 */}
         <div className="text-center border-l border-gray-100">
-          <p className="text-[10px] text-gray-400 mb-2">{partner?.nickname || '对方'}</p>
+          <p className="text-[10px] text-gray-400 mb-2">对方</p>
           {partnerMood ? (
-            (() => {
-              const pm = moodOptions.find(m => m.value === partnerMood)
-              return pm ? <pm.icon size={28} className={`mx-auto mb-1 ${pm.color}`} /> : null
-            })()
+            <div>
+              {PartnerIcon && <PartnerIcon.icon size={28} className={`mx-auto mb-1 ${PartnerIcon.color}`} />}
+              <p className="text-[10px] text-gray-400">{partnerMood.note || ''}</p>
+            </div>
           ) : (
             <p className="text-xs text-gray-300">—</p>
           )}
         </div>
       </div>
 
-      {saved && (
+      {myMood && (
         <input
           type="text"
           value={note}
-          onChange={e => setNote(e.target.value)}
+          onChange={e => { setNote(e.target.value); saveMood(myMood.mood, e.target.value) }}
           placeholder="今天想说的一句话..."
           className="w-full px-3 py-2 rounded-lg border border-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-teal-300 bg-gray-50"
         />

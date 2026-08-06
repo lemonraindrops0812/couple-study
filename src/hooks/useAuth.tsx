@@ -47,12 +47,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return
     // Load partner
     loadPartner()
-    // Subscribe to live activities
+    // Subscribe to live activities + profiles
     const channel = supabase
-      .channel('live_activities')
+      .channel('realtime_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'live_activities' }, () => {
         loadPartnerActivity()
         loadMyActivity()
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+        const updated = payload.new as User
+        // If it's the partner's profile, update partner state
+        if (partner && updated.id === partner.id) {
+          setPartner(updated)
+        }
+        // If it's my own profile, update user state
+        if (user && updated.id === user.id) {
+          setUser(updated)
+        }
       })
       .subscribe()
     return () => { channel.unsubscribe() }

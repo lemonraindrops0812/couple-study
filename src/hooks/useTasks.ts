@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import { getToday } from '../lib/date'
 import type { Task } from '../types'
 
 export function useTasks() {
@@ -8,7 +9,7 @@ export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = getToday()
 
   const fetchTasks = useCallback(async () => {
     if (!user) return
@@ -24,13 +25,15 @@ export function useTasks() {
 
   useEffect(() => { fetchTasks() }, [fetchTasks])
 
-  const addTask = async (title: string) => {
+  const addTask = async (title: string, category?: string, estimated_minutes?: number) => {
     if (!user) return
     const { data } = await supabase.from('tasks').insert({
       user_id: user.id,
       title,
       date: today,
       completed: false,
+      category: category || '其他',
+      estimated_minutes: estimated_minutes || null,
     }).select().single()
     if (data) setTasks(prev => [...prev, data as Task])
   }

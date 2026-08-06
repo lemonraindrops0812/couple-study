@@ -193,3 +193,27 @@ DROP POLICY IF EXISTS "Public read avatars" ON storage.objects;
 CREATE POLICY "Public read avatars"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'avatars');
+
+-- ============================
+-- 10. Mood entries
+-- ============================
+CREATE TABLE IF NOT EXISTS mood_entries (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  mood SMALLINT NOT NULL CHECK (mood BETWEEN 1 AND 5),
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, date)
+);
+
+ALTER TABLE mood_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mood_entries REPLICA IDENTITY FULL;
+
+DROP POLICY IF EXISTS "Users can read all mood entries" ON mood_entries;
+CREATE POLICY "Users can read all mood entries" ON mood_entries FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can insert own mood entries" ON mood_entries;
+CREATE POLICY "Users can insert own mood entries" ON mood_entries FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own mood entries" ON mood_entries;
+CREATE POLICY "Users can update own mood entries" ON mood_entries FOR UPDATE USING (auth.uid() = user_id);
+

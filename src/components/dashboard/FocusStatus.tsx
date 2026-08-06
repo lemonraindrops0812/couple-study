@@ -1,46 +1,50 @@
 import { useAuth } from '../../hooks/useAuth'
-import { Flame } from 'lucide-react'
 
 export function FocusStatus() {
   const { user, partner, liveActivity, partnerActivity } = useAuth()
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-5">
-      <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-        <Flame size={16} className="text-orange-500" />
-        实时专注
-      </h3>
+    <div className="bg-white rounded-2xl border border-emerald-100 p-4" style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)' }}>
+      <div className="grid grid-cols-2 gap-3">
+        <FocusItem
+          name={user?.nickname || '我'}
+          activity={liveActivity}
+          idleEmoji="☁️"
+          idleText="准备开始今天的专注"
+        />
+        <FocusItem
+          name={partner?.nickname || '对方'}
+          activity={partnerActivity}
+          idleEmoji="🌙"
+          idleText="正在等待下一次专注"
+        />
+      </div>
+    </div>
+  )
+}
 
-      <div className="space-y-3">
-        {/* Me */}
-        <div className={`rounded-lg px-4 py-3 ${liveActivity ? 'bg-teal-50' : 'bg-gray-50'}`}>
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${liveActivity ? 'bg-teal-500 animate-pulse' : 'bg-gray-300'}`} />
-            <span className="text-xs font-medium text-gray-500">{user?.nickname || '我'}</span>
-          </div>
-          {liveActivity ? (
-            <p className="text-sm font-medium text-teal-700 mt-1">
-              正在专注 · {liveActivity.subject}
-            </p>
-          ) : (
-            <p className="text-xs text-gray-400 mt-1">暂无学习</p>
-          )}
+function FocusItem({ name, activity, idleEmoji, idleText }: {
+  name: string; activity: { subject: string; start_time: string } | null
+  idleEmoji: string; idleText: string
+}) {
+  if (activity) {
+    return (
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">📖</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-emerald-700">{name} 正在专心学习</p>
+          <p className="text-[11px] text-emerald-600 truncate">{activity.subject}</p>
         </div>
-
-        {/* Partner */}
-        <div className={`rounded-lg px-4 py-3 ${partnerActivity ? 'bg-blue-50' : 'bg-gray-50'}`}>
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${partnerActivity ? 'bg-blue-500 animate-pulse' : 'bg-gray-300'}`} />
-            <span className="text-xs font-medium text-gray-500">{partner?.nickname || '对方'}</span>
-          </div>
-          {partnerActivity ? (
-            <p className="text-sm font-medium text-blue-700 mt-1">
-              正在专注 · {partnerActivity.subject}
-            </p>
-          ) : (
-            <p className="text-xs text-gray-400 mt-1">暂无学习</p>
-          )}
-        </div>
+        <div className="w-2 h-2 rounded-full bg-emerald-400 pulse-soft shrink-0" />
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-2xl">{idleEmoji}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-gray-500">{name}</p>
+        <p className="text-[11px] text-gray-400">{idleText}</p>
       </div>
     </div>
   )

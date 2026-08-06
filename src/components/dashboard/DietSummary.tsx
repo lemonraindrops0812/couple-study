@@ -26,9 +26,10 @@ export function DietSummary({ data }: Props) {
       </div>
 
       {!hasData ? (
-        <div className="text-center py-6">
-          <Utensils size={24} className="mx-auto mb-2 text-gray-300" />
-          <p className="text-xs text-gray-400">今天还没有记录饮食</p>
+        <div className="text-center py-5">
+          <Utensils size={28} className="mx-auto mb-2 text-gray-200" />
+          <p className="text-xs text-gray-400 mb-1">还没有饮食记录</p>
+          <button onClick={() => navigate('/diet')} className="text-[11px] text-teal-600 hover:text-teal-700">记录今天的第一餐 →</button>
         </div>
       ) : (
         <div className="space-y-4">

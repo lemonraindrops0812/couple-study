@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import { getToday } from '../lib/date'
 import type { ExerciseRecord } from '../types'
 
 export function useExercise() {
@@ -8,7 +9,7 @@ export function useExercise() {
   const [records, setRecords] = useState<ExerciseRecord[]>([])
   const [loading, setLoading] = useState(true)
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = getToday()
 
   const fetchRecords = useCallback(async () => {
     if (!user) return

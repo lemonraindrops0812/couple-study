@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import { getToday } from '../lib/date'
 import type { StudySession, Task, DietRecord, ExerciseRecord, DashboardData } from '../types'
 
-const today = new Date().toISOString().split('T')[0]
+const today = getToday()
 
 function getYesterday(): string {
   const d = new Date()

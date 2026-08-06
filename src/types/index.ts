@@ -31,6 +31,8 @@ export interface Task {
   title: string
   date: string
   completed: boolean
+  category?: string
+  estimated_minutes?: number
   created_at: string
 }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import { getToday } from '../lib/date'
 import type { DietRecord } from '../types'
 
 export function useDiet() {
@@ -8,7 +9,7 @@ export function useDiet() {
   const [records, setRecords] = useState<DietRecord[]>([])
   const [loading, setLoading] = useState(true)
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = getToday()
 
   const fetchRecords = useCallback(async () => {
     if (!user) return
