@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import type { StudyAnalytics } from '../../hooks/useStudyAnalytics'
 import { ArrowLeft } from 'lucide-react'
+import { AnalyticsPersonToggle, type AnalyticsPerson } from './AnalyticsPersonToggle'
 
-interface Props { data: StudyAnalytics }
+interface Props { data: StudyAnalytics; dayLabel?: string }
 
 const CAT_COLORS: Record<string, string> = { '专业课': '#0d9488', '英语': '#3b82f6', '政治': '#f59e0b', '其他': '#8b5cf6' }
 const SUB_COLORS = ['#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4', '#ccfbf1', '#3b82f6', '#60a5fa', '#93c5fd', '#f59e0b', '#fbbf24', '#fcd34d', '#8b5cf6', '#a78bfa', '#c4b5fd']
@@ -20,17 +21,23 @@ function classifySubject(name: string): { category: string; sub: string } {
   return { category: '其他', sub: name }
 }
 
-export function SubjectDistribution({ data }: Props) {
+export function SubjectDistribution({ data, dayLabel = '所选日' }: Props) {
+  const [range, setRange] = useState<'today' | 'month'>('month')
+  const [person, setPerson] = useState<AnalyticsPerson>('me')
   const [drilldown, setDrilldown] = useState<string | null>(null) // null = categories, string = category name
+  const isPartner = person === 'partner'
+  const sourceData = isPartner
+    ? (range === 'today' ? data.partnerTodaySubjectData : data.partnerSubjectData)
+    : (range === 'today' ? data.todaySubjectData : data.subjectData)
 
   const { categoryData, subData } = useMemo(() => {
-    if (!data.subjectData.length) return { categoryData: [], subData: {} as Record<string, { name: string; minutes: number; pct: number }[]> }
+    if (!sourceData.length) return { categoryData: [], subData: {} as Record<string, { name: string; minutes: number; pct: number }[]> }
 
     // Group into categories
     const catMap: Record<string, number> = {}
     const subMap: Record<string, Record<string, number>> = {}
 
-    data.subjectData.forEach(s => {
+    sourceData.forEach(s => {
       const { category, sub } = classifySubject(s.name)
       catMap[category] = (catMap[category] || 0) + s.minutes
       if (!subMap[category]) subMap[category] = {}
@@ -55,62 +62,84 @@ export function SubjectDistribution({ data }: Props) {
     })
 
     return { categoryData, subData }
-  }, [data.subjectData])
-
-  if (!data.subjectData.length) return null
+  }, [sourceData])
 
   const displayData = drilldown && subData[drilldown] ? subData[drilldown] : categoryData
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5">
-      <div className="flex items-center gap-2 mb-4">
-        {drilldown && (
-          <button onClick={() => setDrilldown(null)} className="text-gray-400 hover:text-gray-600">
-            <ArrowLeft size={14} />
-          </button>
-        )}
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          🎯 {drilldown ? `${drilldown}组成` : '本月学习组成'}
-        </h3>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <ResponsiveContainer width={120} height={120}>
-          <PieChart>
-            <Pie
-              data={displayData}
-              dataKey="minutes"
-              nameKey="name"
-              cx="50%" cy="50%"
-              innerRadius={32} outerRadius={52}
-            >
-              {displayData.map((_, i) => (
-                <Cell key={i} fill={drilldown ? SUB_COLORS[i % SUB_COLORS.length] : CAT_COLORS[displayData[i].name] || SUB_COLORS[i % SUB_COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip formatter={(v: unknown) => `${v}min`} />
-          </PieChart>
-        </ResponsiveContainer>
-
-        <div className="space-y-1.5 flex-1">
-          {displayData.slice(0, 8).map((s, i) => (
-            <button
-              key={s.name}
-              onClick={() => { if (!drilldown && subData[s.name]) setDrilldown(s.name) }}
-              disabled={!!drilldown}
-              className={`w-full flex items-center gap-2 text-left ${!drilldown && subData[s.name] ? 'hover:bg-gray-50 rounded px-1 -mx-1 cursor-pointer' : ''}`}
-            >
-              <div className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: drilldown ? SUB_COLORS[i % SUB_COLORS.length] : CAT_COLORS[s.name] || SUB_COLORS[i % SUB_COLORS.length] }} />
-              <span className="text-[11px] text-gray-700 truncate flex-1">{s.name}</span>
-              <span className="text-[11px] font-medium text-gray-900">{s.minutes}min</span>
-              <span className="text-[10px] text-gray-400 w-8 text-right">{s.pct}%</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2 min-w-0">
+          {drilldown && (
+            <button onClick={() => setDrilldown(null)} className="text-gray-400 hover:text-gray-600 shrink-0">
+              <ArrowLeft size={14} />
             </button>
-          ))}
+          )}
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide truncate">
+            🎯 {drilldown ? `${range === 'today' ? dayLabel : '本月'}${drilldown}组成` : `${range === 'today' ? dayLabel : '本月'}学习组成`}
+          </h3>
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <AnalyticsPersonToggle value={person} onChange={(value) => { setPerson(value); setDrilldown(null) }} />
+          <div className="flex bg-stone-100 rounded-lg p-0.5 shrink-0">
+            {(['today', 'month'] as const).map(value => (
+              <button
+                key={value}
+                onClick={() => { setRange(value); setDrilldown(null) }}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  range === value ? 'bg-white text-emerald-700 shadow-sm' : 'text-stone-400 hover:text-stone-600'
+                }`}
+              >
+                {value === 'today' ? '当天' : '本月'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {!drilldown && (
+      {displayData.length ? (
+        <div className="flex items-center gap-4">
+          <ResponsiveContainer width={120} height={120}>
+            <PieChart>
+              <Pie
+                data={displayData}
+                dataKey="minutes"
+                nameKey="name"
+                cx="50%" cy="50%"
+                innerRadius={32} outerRadius={52}
+              >
+                {displayData.map((_, i) => (
+                  <Cell key={i} fill={drilldown ? SUB_COLORS[i % SUB_COLORS.length] : CAT_COLORS[displayData[i].name] || SUB_COLORS[i % SUB_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v: unknown) => `${v}min`} />
+            </PieChart>
+          </ResponsiveContainer>
+
+          <div className="space-y-1.5 flex-1">
+            {displayData.slice(0, 8).map((s, i) => (
+              <button
+                key={s.name}
+                onClick={() => { if (!drilldown && subData[s.name]) setDrilldown(s.name) }}
+                disabled={!!drilldown}
+                className={`w-full flex items-center gap-2 text-left ${!drilldown && subData[s.name] ? 'hover:bg-gray-50 rounded px-1 -mx-1 cursor-pointer' : ''}`}
+              >
+                <div className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: drilldown ? SUB_COLORS[i % SUB_COLORS.length] : CAT_COLORS[s.name] || SUB_COLORS[i % SUB_COLORS.length] }} />
+                <span className="text-[11px] text-gray-700 truncate flex-1">{s.name}</span>
+                <span className="text-[11px] font-medium text-gray-900">{s.minutes}min</span>
+                <span className="text-[10px] text-gray-400 w-8 text-right">{s.pct}%</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="h-[120px] flex items-center justify-center text-xs text-stone-300">
+          {isPartner ? `对方在${range === 'today' ? dayLabel : '本月'}还` : `${range === 'today' ? dayLabel : '本月'}还`}没有完成的学习记录
+        </div>
+      )}
+
+      {!drilldown && displayData.length > 0 && (
         <p className="text-[10px] text-gray-300 mt-3 text-center">点击分类查看细分 →</p>
       )}
     </div>

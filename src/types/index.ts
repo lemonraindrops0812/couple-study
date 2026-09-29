@@ -12,6 +12,8 @@ export interface StudySession {
   start_time: string
   end_time: string | null
   duration_minutes: number | null
+  study_summary: string | null
+  study_reflection: string | null
   date: string
   created_at: string
 }

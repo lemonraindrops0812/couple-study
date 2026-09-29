@@ -9,8 +9,13 @@ const moodOptions = [
   { value: 5 as const, icon: Heart, label: '超棒', color: 'text-pink-500' },
 ]
 
-export function MoodCard() {
-  const { myMood, partnerMood, saveMood } = useMood()
+interface Props {
+  selectedDate?: string
+  dateLabel?: string
+}
+
+export function MoodCard({ selectedDate, dateLabel = '今日' }: Props) {
+  const { myMood, partnerMood, saveMood } = useMood(selectedDate)
   const [note, setNote] = useState(myMood?.note || '')
   const [editing, setEditing] = useState(false)
 
@@ -26,7 +31,7 @@ export function MoodCard() {
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5">
-      <h3 className="text-sm font-semibold text-gray-700 mb-4">今日心情</h3>
+      <h3 className="text-sm font-semibold text-gray-700 mb-4">{dateLabel}心情</h3>
 
       <div className="grid grid-cols-2 gap-3 mb-3">
         {/* 我 */}
@@ -82,7 +87,7 @@ export function MoodCard() {
           type="text"
           value={note}
           onChange={e => { setNote(e.target.value); saveMood(myMood.mood, e.target.value) }}
-          placeholder="今天想说的一句话..."
+          placeholder={`${dateLabel}想说的一句话...`}
           className="w-full px-3 py-2 rounded-lg border border-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-teal-300 bg-gray-50"
         />
       )}

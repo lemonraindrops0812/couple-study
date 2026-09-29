@@ -26,13 +26,16 @@ export function useExercise() {
   useEffect(() => { fetchRecords() }, [fetchRecords])
 
   const addRecord = async (record: Omit<ExerciseRecord, 'id' | 'user_id' | 'date' | 'created_at'>) => {
-    if (!user) return
+    if (!user) return null
     const { data } = await supabase.from('exercise_records').insert({
       user_id: user.id,
       date: today,
       ...record,
     }).select().single()
-    if (data) setRecords(prev => [...prev, data as ExerciseRecord])
+    if (!data) return null
+    const savedRecord = data as ExerciseRecord
+    setRecords(prev => [...prev, savedRecord])
+    return savedRecord
   }
 
   const deleteRecord = async (id: string) => {

@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { StudyAnalytics } from '../../hooks/useStudyAnalytics'
 import { Sprout, Flame, BookOpen } from 'lucide-react'
+import { AnalyticsPersonToggle, type AnalyticsPerson } from './AnalyticsPersonToggle'
 
 interface Props { data: StudyAnalytics }
 
@@ -13,17 +14,26 @@ function dotColor(minutes: number): string {
 }
 
 export function StudyHeatmap({ data }: Props) {
+  const [person, setPerson] = useState<AnalyticsPerson>('me')
+  const isPartner = person === 'partner'
+  const heatmapData = isPartner ? data.partnerHeatmapData : data.heatmapData
+  const streakDays = isPartner ? data.partnerStreakDays : data.streakDays
+  const totalMinutes90 = isPartner ? data.partnerTotalMinutes90 : data.totalMinutes90
+  const maxStreak = isPartner ? data.partnerMaxStreak : data.maxStreak
   const weeks = useMemo(() => {
     const w: { date: string; minutes: number }[][] = []
-    for (let i = 0; i < data.heatmapData.length; i += 7) {
-      w.push(data.heatmapData.slice(i, i + 7))
+    for (let i = 0; i < heatmapData.length; i += 7) {
+      w.push(heatmapData.slice(i, i + 7))
     }
     return w
-  }, [data.heatmapData])
+  }, [heatmapData])
 
   return (
     <div className="bg-white rounded-2xl border border-stone-100 p-5" style={{ background: '#fffcf5' }}>
-      <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-4">🌱 坚持成长 · 近90天</h3>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide">🌱 坚持成长 · 近90天</h3>
+        <AnalyticsPersonToggle value={person} onChange={setPerson} />
+      </div>
 
       {/* Dot grid */}
       <div className="flex gap-0.5 overflow-x-auto pb-2 mb-4 justify-center">
@@ -54,17 +64,17 @@ export function StudyHeatmap({ data }: Props) {
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-white rounded-xl p-2.5 text-center border border-stone-100">
           <Sprout size={16} className="mx-auto mb-1 text-emerald-500" />
-          <p className="text-lg font-bold text-stone-700">{data.streakDays}</p>
+          <p className="text-lg font-bold text-stone-700">{streakDays}</p>
           <p className="text-[10px] text-stone-400">连续坚持</p>
         </div>
         <div className="bg-white rounded-xl p-2.5 text-center border border-stone-100">
           <BookOpen size={16} className="mx-auto mb-1 text-emerald-500" />
-          <p className="text-lg font-bold text-stone-700">{(data.totalMinutes90 / 60).toFixed(0)}</p>
+          <p className="text-lg font-bold text-stone-700">{(totalMinutes90 / 60).toFixed(0)}</p>
           <p className="text-[10px] text-stone-400">累计小时</p>
         </div>
         <div className="bg-white rounded-xl p-2.5 text-center border border-stone-100">
           <Flame size={16} className="mx-auto mb-1 text-orange-400" />
-          <p className="text-lg font-bold text-stone-700">{data.maxStreak}</p>
+          <p className="text-lg font-bold text-stone-700">{maxStreak}</p>
           <p className="text-[10px] text-stone-400">最长连续</p>
         </div>
       </div>

@@ -1,41 +1,20 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
-import { getToday } from '../lib/date'
+import { getDateOffset, getToday } from '../lib/date'
 import type { StudySession, Task, DietRecord, ExerciseRecord, DashboardData } from '../types'
 
-const today = getToday()
-
-function getYesterday(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  return d.toISOString().split('T')[0]
-}
-
-function getWeekStart(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - d.getDay())
-  return d.toISOString().split('T')[0]
-}
-
-function computeStreak(sessions: StudySession[]): number {
+function computeStreak(sessions: StudySession[], endDate: Date): number {
   if (!sessions.length) return 0
   const days = new Set(sessions.map(s => s.date))
   let streak = 0
-  const d = new Date()
-  while (days.has(d.toISOString().split('T')[0])) {
+  while (days.has(getDateOffset(-streak, endDate))) {
     streak++
-    d.setDate(d.getDate() - 1)
-  }
-  // Also check today
-  if (streak === 0) {
-    const todayStr = new Date().toISOString().split('T')[0]
-    if (days.has(todayStr)) streak = 1
   }
   return streak
 }
 
-export function useDashboard(): { data: DashboardData; loading: boolean } {
+export function useDashboard(selectedDate = getToday()): { data: DashboardData; loading: boolean } {
   const { user, partner } = useAuth()
   const [data, setData] = useState<DashboardData>({
     todayStudyMinutes: 0, todayStudyCount: 0, yesterdayStudyMinutes: 0,
@@ -49,8 +28,10 @@ export function useDashboard(): { data: DashboardData; loading: boolean } {
 
   const fetchAll = useCallback(async () => {
     if (!user) return
-    const yesterday = getYesterday()
-    const weekStart = getWeekStart()
+    const today = selectedDate
+    const referenceDate = new Date(`${today}T12:00:00`)
+    const yesterday = getDateOffset(-1, referenceDate)
+    const sevenDaysStart = getDateOffset(-6, referenceDate)
 
     const [
       { data: todaySessions },
@@ -72,8 +53,9 @@ export function useDashboard(): { data: DashboardData; loading: boolean } {
 
     const todayStudy = (todaySessions as StudySession[]) || []
     const yesterdayStudy = (yesterdaySessions as StudySession[]) || []
-    const mySessions = (allMySessions as StudySession[]) || []
-    const partnerSessions = (allPartnerSessions as StudySession[]) || []
+    // A date picker must never pull later records into a historical view.
+    const mySessions = ((allMySessions as StudySession[]) || []).filter(session => session.date <= today)
+    const partnerSessions = ((allPartnerSessions as StudySession[]) || []).filter(session => session.date <= today)
     const todayTasks = (tasks as Task[]) || []
     const todayDiet = (diet as DietRecord[]) || []
     const todayExercise = (exercise as ExerciseRecord[]) || []
@@ -103,13 +85,11 @@ export function useDashboard(): { data: DashboardData; loading: boolean } {
     // Weekly combined (last 7 days)
     const weeklyMap: Record<string, { sessions: number; tasks: number }> = {}
     for (let i = 6; i >= 0; i--) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      const key = d.toISOString().split('T')[0]
+      const key = getDateOffset(-i, referenceDate)
       weeklyMap[key] = { sessions: 0, tasks: 0 }
     }
-    const { data: weekSessions } = await supabase.from('study_sessions').select('*').gte('date', weekStart)
-    const { data: weekTasks } = await supabase.from('tasks').select('*').gte('date', weekStart)
+    const { data: weekSessions } = await supabase.from('study_sessions').select('*').gte('date', sevenDaysStart).lte('date', today)
+    const { data: weekTasks } = await supabase.from('tasks').select('*').gte('date', sevenDaysStart).lte('date', today)
     ;(weekSessions as StudySession[])?.forEach(s => { if (weeklyMap[s.date]) weeklyMap[s.date].sessions++ })
     ;(weekTasks as Task[])?.forEach(t => { if (weeklyMap[t.date]) weeklyMap[t.date].tasks++ })
 
@@ -125,8 +105,8 @@ export function useDashboard(): { data: DashboardData; loading: boolean } {
       dietFat: todayDiet.reduce((s, r) => s + (r.fat || 0), 0),
       exerciseMinutes: todayExercise.reduce((s, r) => s + (r.duration_minutes || 0), 0),
       exerciseCount: todayExercise.length,
-      streakDays: computeStreak(mySessions),
-      partnerStreakDays: computeStreak(partnerSessions),
+      streakDays: computeStreak(mySessions, referenceDate),
+      partnerStreakDays: computeStreak(partnerSessions, referenceDate),
       subjectBreakdown: Object.entries(breakdownMap).map(([name, minutes]) => ({ name, minutes })),
       hourlyData: Object.entries(hourlyMap).map(([h, m]) => ({ hour: `${h}时`, minutes: m })),
       partnerHourlyData: Object.entries(partnerHourlyMap).map(([h, m]) => ({ hour: `${h}时`, minutes: m })),
@@ -137,9 +117,21 @@ export function useDashboard(): { data: DashboardData; loading: boolean } {
       })),
     })
     setLoading(false)
-  }, [user, partner])
+  }, [user, partner, selectedDate])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel(`dashboard_metrics_${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'study_sessions' }, () => { void fetchAll() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => { void fetchAll() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'diet_records' }, () => { void fetchAll() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'exercise_records' }, () => { void fetchAll() })
+      .subscribe()
+    return () => { channel.unsubscribe() }
+  }, [user?.id, partner?.id, fetchAll])
 
   return { data, loading }
 }

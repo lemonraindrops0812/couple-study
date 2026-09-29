@@ -3,7 +3,9 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { StudySession } from '../../types'
-import { Clock, Users, BookOpen, TrendingUp, Trash2 } from 'lucide-react'
+import { Clock, Users, BookOpen, TrendingUp, Pencil, Trash2 } from 'lucide-react'
+import { formatDateKey, getDateOffset, getLogicalDate, getToday, getWeekStart } from '../../lib/date'
+import { StudySessionEditor } from '../study/StudySessionEditor'
 
 const COLORS = ['#0d9488', '#14b8a6', '#2dd4bf', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899']
 
@@ -12,24 +14,29 @@ export function StatsPage() {
   const [mySessions, setMySessions] = useState<StudySession[]>([])
   const [partnerSessions, setPartnerSessions] = useState<StudySession[]>([])
   const [view, setView] = useState<'today' | 'week' | 'month'>('week')
+  const [editingSession, setEditingSession] = useState<StudySession | null>(null)
 
   const deleteSession = async (id: string) => {
-    await supabase.from('study_sessions').delete().eq('id', id)
+    if (!window.confirm('确定删除这条学习记录吗？此操作无法撤销。')) return
+    const { error } = await supabase.from('study_sessions').delete().eq('id', id)
+    if (error) {
+      alert(`删除失败：${error.message}`)
+      return
+    }
     setMySessions(prev => prev.filter(s => s.id !== id))
     setPartnerSessions(prev => prev.filter(s => s.id !== id))
   }
 
   const fetchData = () => {
     if (!user) return
-    const now = new Date()
     let startDate: string
     if (view === 'today') {
-      startDate = now.toISOString().split('T')[0]
+      startDate = getToday()
     } else if (view === 'week') {
-      const ws = new Date(now); ws.setDate(now.getDate() - now.getDay())
-      startDate = ws.toISOString().split('T')[0]
+      startDate = getWeekStart()
     } else {
-      startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+      const now = getLogicalDate()
+      startDate = formatDateKey(new Date(now.getFullYear(), now.getMonth(), 1))
     }
 
     Promise.all([
@@ -57,8 +64,7 @@ export function StatsPage() {
   // Daily breakdown (last 7 days - both combined)
   const dailyMap: Record<string, { me: number; partner: number }> = {}
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i)
-    dailyMap[d.toISOString().split('T')[0]] = { me: 0, partner: 0 }
+    dailyMap[getDateOffset(-i)] = { me: 0, partner: 0 }
   }
   mySessions.forEach(s => { if (dailyMap[s.date]) dailyMap[s.date].me += (s.duration_minutes || 0) })
   partnerSessions.forEach(s => { if (dailyMap[s.date]) dailyMap[s.date].partner += (s.duration_minutes || 0) })
@@ -70,6 +76,7 @@ export function StatsPage() {
 
   const viewLabel = view === 'today' ? '今天' : view === 'week' ? '本周' : '本月'
   const hasData = mySessions.length > 0 || partnerSessions.length > 0
+  const formatTime = (value: string | null) => value ? new Date(value).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '—'
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -86,7 +93,7 @@ export function StatsPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={Clock} label={`${viewLabel}总时长`} value={`${(totalMin / 60).toFixed(1)}h`} />
         <StatCard icon={BookOpen} label="学习次数" value={mySessions.length + partnerSessions.length} />
         <StatCard icon={Users} label={user?.nickname || '我'} value={`${(myMin / 60).toFixed(1)}h`} sub={`${mySessions.length}次`} />
@@ -118,7 +125,7 @@ export function StatsPage() {
           </div>
 
           {/* Subject distribution */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white rounded-xl border border-gray-100 p-5">
               <h3 className="text-sm font-semibold text-gray-700 mb-4">科目分布</h3>
               {pieData.length > 0 ? (
@@ -152,15 +159,23 @@ export function StatsPage() {
               <div className="space-y-1 max-h-60 overflow-y-auto">
                 {[...mySessions, ...partnerSessions].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()).slice(0, 20).map(s => (
                   <div key={s.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0 group">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-gray-400">{s.date.slice(5)}</span>
-                      <span className="text-xs text-gray-700">{s.subject}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-400">{s.date.slice(5)}</span>
+                        <span className="text-xs text-gray-700 truncate">{s.subject}</span>
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-gray-400">{formatTime(s.start_time)}–{formatTime(s.end_time)}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400">{s.duration_minutes || 0}min</span>
-                      <button onClick={() => deleteSession(s.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
-                        <Trash2 size={12} />
-                      </button>
+                      {s.user_id === user?.id && <>
+                        <button onClick={() => setEditingSession(s)} className="text-gray-300 hover:text-teal-600 transition-colors" title="修改起止时间" aria-label="修改起止时间">
+                          <Pencil size={12} />
+                        </button>
+                        <button onClick={() => deleteSession(s.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="删除记录" aria-label="删除记录">
+                          <Trash2 size={12} />
+                        </button>
+                      </>}
                     </div>
                   </div>
                 ))}
@@ -168,6 +183,13 @@ export function StatsPage() {
             </div>
           </div>
         </>
+      )}
+      {editingSession && (
+        <StudySessionEditor
+          session={editingSession}
+          onClose={() => setEditingSession(null)}
+          onSaved={() => { setEditingSession(null); fetchData() }}
+        />
       )}
     </div>
   )

@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* The desktop sidebar owns its offset; phones always use the bottom nav. */
+.dashboard-main {
+  margin-left: 0;
+}
+
+@media (min-width: 768px) {
+  .dashboard-main {
+    margin-left: var(--sidebar-width);
+  }
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;

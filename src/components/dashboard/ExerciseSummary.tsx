@@ -4,9 +4,10 @@ import type { DashboardData } from '../../types'
 
 interface Props {
   data: DashboardData
+  isCurrent?: boolean
 }
 
-export function ExerciseSummary({ data }: Props) {
+export function ExerciseSummary({ data, isCurrent = true }: Props) {
   const navigate = useNavigate()
   const { exerciseMinutes, exerciseCount } = data
   const hasData = exerciseMinutes > 0 || exerciseCount > 0
@@ -24,7 +25,7 @@ export function ExerciseSummary({ data }: Props) {
         <div className="text-center py-5">
           <Dumbbell size={28} className="mx-auto mb-2 text-gray-200" />
           <p className="text-xs text-gray-400 mb-1">还没有运动记录</p>
-          <button onClick={() => navigate('/exercise')} className="text-[11px] text-teal-600 hover:text-teal-700">开始今天的训练 →</button>
+          <button onClick={() => navigate('/exercise')} className="text-[11px] text-teal-600 hover:text-teal-700">{isCurrent ? '开始今天的训练 →' : '前往训练页 →'}</button>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">

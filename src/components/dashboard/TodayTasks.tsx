@@ -7,9 +7,11 @@ const CAT_COLORS: Record<string, string> = { '学习': 'bg-blue-100 text-blue-70
 interface Props {
   tasks: Task[]
   onToggle: (id: string, completed: boolean) => void
+  dateLabel?: string
+  isCurrent?: boolean
 }
 
-export function TodayTasks({ tasks, onToggle }: Props) {
+export function TodayTasks({ tasks, onToggle, dateLabel = '所选日', isCurrent = true }: Props) {
   const navigate = useNavigate()
   const done = tasks.filter(t => t.completed).length
   const total = tasks.length
@@ -19,7 +21,7 @@ export function TodayTasks({ tasks, onToggle }: Props) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-gray-700">今日任务</h3>
+        <h3 className="text-sm font-semibold text-gray-700">{isCurrent ? '今日任务' : `${dateLabel}任务`}</h3>
         <button onClick={() => navigate('/tasks')} className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 transition-colors">
           查看全部 <ArrowRight size={12} />
         </button>
@@ -44,8 +46,8 @@ export function TodayTasks({ tasks, onToggle }: Props) {
 
       {tasks.length === 0 ? (
         <div className="text-center py-4">
-          <p className="text-xs text-gray-400 mb-2">今天还没有任务</p>
-          <button onClick={() => navigate('/tasks')} className="text-[11px] text-teal-600 hover:text-teal-700">去添加 →</button>
+          <p className="text-xs text-gray-400 mb-2">{isCurrent ? '今天还没有任务' : '这一天还没有任务'}</p>
+          <button onClick={() => navigate('/tasks')} className="text-[11px] text-teal-600 hover:text-teal-700">前往任务页 →</button>
         </div>
       ) : (
         <div className="space-y-1 max-h-48 overflow-y-auto">

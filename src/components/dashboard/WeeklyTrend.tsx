@@ -4,20 +4,21 @@ import { Users } from 'lucide-react'
 
 interface Props {
   data: DashboardData
+  endDateLabel?: string
 }
 
-export function WeeklyTrend({ data }: Props) {
+export function WeeklyTrend({ data, endDateLabel = '所选日' }: Props) {
   const hasData = data.weeklyCombined.some(d => d.sessions > 0 || d.tasks > 0)
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5">
       <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-        <Users size={16} className="text-teal-500" /> 本周共同趋势
+        <Users size={16} className="text-teal-500" /> 近7日共同趋势
       </h3>
 
       {!hasData ? (
         <p className="text-xs text-gray-400 text-center py-6">
-          本周还没有记录，开始学习吧 ✨
+          截至{endDateLabel}还没有记录，开始学习吧 ✨
         </p>
       ) : (
         <ResponsiveContainer width="100%" height={160}>

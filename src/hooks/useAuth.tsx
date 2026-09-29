@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  updateProfile: (profile: { nickname: string; avatar_url: string | null }) => Promise<void>
   liveActivity: LiveActivity | null
   partnerActivity: LiveActivity | null
 }
@@ -45,14 +46,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user) return
-    // Load partner
-    loadPartner()
-    // Subscribe to live activities + profiles
+    void loadPartner()
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!user) return
+    // Realtime is immediate when the connection is healthy. A small polling
+    // fallback keeps both dashboards correct when a phone sleeps or briefly
+    // misses a WebSocket event.
+    const refreshActivities = () => {
+      void loadMyActivity()
+      if (partner) void loadPartnerActivity()
+      else setPartnerActivity(null)
+    }
+    refreshActivities()
+
     const channel = supabase
-      .channel('realtime_changes')
+      .channel(`realtime_changes_${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'live_activities' }, () => {
-        loadPartnerActivity()
-        loadMyActivity()
+        refreshActivities()
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
         const updated = payload.new as User
@@ -66,8 +78,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
       .subscribe()
-    return () => { channel.unsubscribe() }
-  }, [user])
+    const interval = window.setInterval(refreshActivities, 10_000)
+    window.addEventListener('couple-study:activity-changed', refreshActivities)
+    return () => {
+      channel.unsubscribe()
+      window.clearInterval(interval)
+      window.removeEventListener('couple-study:activity-changed', refreshActivities)
+    }
+  }, [user?.id, partner?.id])
 
   async function loadUser(userId: string) {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
@@ -117,8 +135,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPartner(null)
   }
 
+  async function updateProfile(profile: { nickname: string; avatar_url: string | null }) {
+    if (!user) throw new Error('请先登录')
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(profile)
+      .eq('id', user.id)
+      .select()
+      .single()
+    if (error) throw error
+    if (data) setUser(data as User)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, partner, loading, signIn, signOut, liveActivity, partnerActivity }}>
+    <AuthContext.Provider value={{ user, partner, loading, signIn, signOut, updateProfile, liveActivity, partnerActivity }}>
       {children}
     </AuthContext.Provider>
   )

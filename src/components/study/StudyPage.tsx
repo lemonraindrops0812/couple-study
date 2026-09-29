@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useStudyTimer } from '../../hooks/useStudyTimer'
-import { Play, Square, BookOpen, ArrowLeft } from 'lucide-react'
+import { Play, Square, BookOpen, ArrowLeft, Pause } from 'lucide-react'
+import { StudyReflectionDialog } from './StudyReflectionDialog'
+import type { StudySession } from '../../types'
 
 type MainSubject = '专业课' | '英语' | '政治' | '其他'
 type Step = 'main' | 'sub' | 'other' | 'english'
@@ -20,16 +22,18 @@ const subSubjects: Record<string, string[]> = {
 const englishOptions = ['刷真题', '背单词', '外刊阅读', '写作练习', '听网课', '其他']
 
 export function StudyPage() {
-  const { isStudying, subject, startTime, formatElapsed, startStudy, stopStudy } = useStudyTimer()
+  const { isStudying, isPaused, isStopping, isPauseChanging, subject, startTime, timerError, formatElapsed, startStudy, pauseStudy, resumeStudy, stopStudy } = useStudyTimer()
   const [step, setStep] = useState<Step>('main')
   const [mainSubject, setMainSubject] = useState<MainSubject>('专业课')
   const [selectedBook, setSelectedBook] = useState('')
   const [customSubject, setCustomSubject] = useState('')
   const [selectedEng, setSelectedEng] = useState('')
   const [examYear, setExamYear] = useState('')
+  const [reflectionSession, setReflectionSession] = useState<StudySession | null>(null)
 
-  const handleStart = (label: string) => {
-    startStudy(label)
+  const handleStart = async (label: string) => {
+    const started = await startStudy(label)
+    if (!started) return
     setStep('main')
     setSelectedBook('')
     setCustomSubject('')
@@ -65,7 +69,13 @@ export function StudyPage() {
   }
 
   const handleStop = async () => {
-    await stopStudy()
+    const completedSession = await stopStudy()
+    if (completedSession) setReflectionSession(completedSession)
+  }
+
+  const handlePauseToggle = async () => {
+    if (isPaused) await resumeStudy()
+    else await pauseStudy()
   }
 
   const handleBack = () => {
@@ -81,6 +91,12 @@ export function StudyPage() {
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">学习计时</h2>
+
+      {timerError && (
+        <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {timerError}
+        </div>
+      )}
 
       {!isStudying ? (
         <>
@@ -231,17 +247,31 @@ export function StudyPage() {
               {formatElapsed()}
             </p>
             <p className="text-sm text-gray-400 mt-2">
-              开始于 {startTime?.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+              {isPaused ? '已暂停，继续后会从当前时长接着计时' : `开始于 ${startTime?.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`}
             </p>
           </div>
-          <button
-            onClick={handleStop}
-            className="inline-flex items-center gap-2 px-8 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl transition-colors"
-          >
-            <Square size={16} /> 结束学习
-          </button>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button
+              onClick={handlePauseToggle}
+              disabled={isStopping || isPauseChanging}
+              className={`inline-flex items-center gap-2 px-6 py-3 text-white font-medium rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                isPaused ? 'bg-teal-600 hover:bg-teal-700' : 'bg-amber-500 hover:bg-amber-600'
+              }`}
+            >
+              {isPaused ? <Play size={16} /> : <Pause size={16} />}
+              {isPauseChanging ? '正在同步…' : isPaused ? '继续学习' : '暂停学习'}
+            </button>
+            <button
+              onClick={handleStop}
+              disabled={isStopping || isPauseChanging}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl transition-colors disabled:cursor-not-allowed disabled:bg-red-300"
+            >
+              <Square size={16} /> {isStopping ? '正在保存…' : '结束学习'}
+            </button>
+          </div>
         </div>
       )}
+      {reflectionSession && <StudyReflectionDialog session={reflectionSession} onClose={() => setReflectionSession(null)} />}
     </div>
   )
 }

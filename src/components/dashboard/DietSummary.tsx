@@ -4,9 +4,10 @@ import type { DashboardData } from '../../types'
 
 interface Props {
   data: DashboardData
+  isCurrent?: boolean
 }
 
-export function DietSummary({ data }: Props) {
+export function DietSummary({ data, isCurrent = true }: Props) {
   const navigate = useNavigate()
   const { dietCalories, dietProtein, dietCarbs, dietFat } = data
   const hasData = dietCalories > 0 || dietProtein > 0
@@ -29,7 +30,7 @@ export function DietSummary({ data }: Props) {
         <div className="text-center py-5">
           <Utensils size={28} className="mx-auto mb-2 text-gray-200" />
           <p className="text-xs text-gray-400 mb-1">还没有饮食记录</p>
-          <button onClick={() => navigate('/diet')} className="text-[11px] text-teal-600 hover:text-teal-700">记录今天的第一餐 →</button>
+          <button onClick={() => navigate('/diet')} className="text-[11px] text-teal-600 hover:text-teal-700">{isCurrent ? '记录今天的第一餐 →' : '前往饮食页 →'}</button>
         </div>
       ) : (
         <div className="space-y-4">

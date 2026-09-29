@@ -25,10 +25,11 @@ function Avatar({ nickname, avatarUrl, size }: { nickname: string; avatarUrl?: s
 interface Props {
   collapsed: boolean
   onToggle: () => void
+  onMobileClose?: () => void
 }
 
-export function Sidebar({ collapsed, onToggle }: Props) {
-  const { user, signOut } = useAuth()
+export function Sidebar({ collapsed, onToggle, onMobileClose }: Props) {
+  const { user, signOut, updateProfile } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [nickname, setNickname] = useState(user?.nickname || '')
@@ -43,28 +44,51 @@ export function Sidebar({ collapsed, onToggle }: Props) {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !user) return
+    if (!file.type.startsWith('image/')) {
+      alert('请选择图片文件。')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('头像不能超过 5 MB。')
+      return
+    }
     setPreviewUrl(URL.createObjectURL(file))
     setUploading(true)
-    const ext = file.name.split('.').pop() || 'jpg'
-    const { error } = await supabase.storage.from('avatars').upload(`${user.id}.${ext}`, file, { upsert: true, contentType: file.type })
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const filePath = `${user.id}/avatar.${ext}`
+    const { error } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true, contentType: file.type })
     setUploading(false)
     if (error) { alert('上传失败: ' + error.message); setPreviewUrl(null); return }
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(`${user.id}.${ext}`)
-    if (urlData?.publicUrl) setAvatarUrl(urlData.publicUrl)
+    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath)
+    if (urlData?.publicUrl) setAvatarUrl(`${urlData.publicUrl}?v=${Date.now()}`)
   }
 
   const saveProfile = async () => {
     if (!user || !nickname.trim()) return
     setSaving(true)
-    await supabase.from('profiles').update({ nickname: nickname.trim(), avatar_url: avatarUrl.trim() || null }).eq('id', user.id)
-    setShowSettings(false)
+    try {
+      await updateProfile({ nickname: nickname.trim(), avatar_url: avatarUrl.trim() || null })
+      setShowSettings(false)
+    } catch (error) {
+      alert(`保存失败：${error instanceof Error ? error.message : '请稍后再试'}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <>
       <aside
-        className={`fixed left-0 top-0 h-screen ${width} bg-[#fffdf8] border-r border-amber-100/50 flex flex-col transition-all duration-300 z-40`}
+        className={`fixed left-0 top-0 h-screen ${width} max-w-[85vw] bg-[#fffdf8] border-r border-amber-100/50 flex flex-col transition-all duration-300 z-40`}
       >
+        {/* Mobile close button */}
+        <button
+          onClick={onMobileClose}
+          className="md:hidden absolute top-3 right-3 p-1 text-stone-400 hover:text-stone-600"
+        >
+          <X size={20} />
+        </button>
+
         {/* Toggle + Logo */}
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'} p-4`}>
           {!collapsed && <h1 className="text-base font-bold text-emerald-700 tracking-tight">Couple Study</h1>}
@@ -76,7 +100,7 @@ export function Sidebar({ collapsed, onToggle }: Props) {
         {/* Nav */}
         <nav className={`flex-1 ${collapsed ? 'px-2' : 'px-3'} space-y-0.5`}>
           {navItems.map(item => (
-            <SidebarItem key={item.to} {...item} collapsed={collapsed} />
+            <SidebarItem key={item.to} {...item} collapsed={collapsed} onClick={onMobileClose} />
           ))}
         </nav>
 

@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { Plus, Trash2, Timer, Clock, Dumbbell, ChevronDown, ChevronUp, History, Play, Pause } from 'lucide-react'
 import type { ExerciseRecord } from '../../types'
+import { WeeklyTrainingPlan, type ExercisePart } from './WeeklyTrainingPlan'
 
 const EXERCISE_LIBRARY: Record<string, { name: string; icon: string }[]> = {
   '胸部': [
@@ -23,19 +24,22 @@ const EXERCISE_LIBRARY: Record<string, { name: string; icon: string }[]> = {
   '腿部': [
     { name: '杠铃深蹲', icon: '🏋️' }, { name: '腿举', icon: '🦵' }, { name: '腿弯举', icon: '🦵' },
     { name: '腿屈伸', icon: '🦵' }, { name: '罗马尼亚硬拉', icon: '🏋️' }, { name: '保加利亚分腿蹲', icon: '🦵' },
-    { name: '提踵', icon: '🦶' },
+    { name: '提踵', icon: '🦶' }, { name: '脚跟垫高高脚杯深蹲', icon: '🦵' }, { name: '沙发臀推', icon: '🍑' },
+    { name: '下固定点弹力绳髋拉', icon: '🪢' }, { name: 'B站姿罗马尼亚硬拉', icon: '🏋️' }, { name: '长步幅后撤弓步', icon: '🦵' },
+    { name: '单腿臀推', icon: '🍑' }, { name: '滑盘腿弯举', icon: '🦵' }, { name: '环形带侧向行走', icon: '🚶' },
   ],
   '手臂': [
     { name: '杠铃弯举', icon: '💪' }, { name: '哑铃弯举', icon: '💪' }, { name: '锤式弯举', icon: '🔨' },
-    { name: '绳索下压', icon: '🪢' }, { name: '窄距卧推', icon: '🏋️' }, { name: '臂屈伸', icon: '💪' },
+    { name: '绳索下压', icon: '🪢' }, { name: '窄距卧推', icon: '🏋️' }, { name: '臂屈伸', icon: '💪' }, { name: '哑铃旋后弯举', icon: '💪' },
   ],
   '核心': [
     { name: '卷腹', icon: '🔄' }, { name: '平板支撑', icon: '🪵' }, { name: '俄罗斯转体', icon: '🇷🇺' },
-    { name: '悬垂举腿', icon: '🦵' }, { name: '仰卧起坐', icon: '🛌' },
+    { name: '悬垂举腿', icon: '🦵' }, { name: '仰卧起坐', icon: '🛌' }, { name: '死虫', icon: '🐞' },
+    { name: '侧桥', icon: '🪵' }, { name: '单侧负重原地踏步', icon: '🚶' }, { name: '健腹轮墙面限位', icon: '🛞' },
   ],
   '有氧': [
     { name: '跑步', icon: '🏃' }, { name: '跳绳', icon: '🪢' }, { name: '单车', icon: '🚴' },
-    { name: '椭圆机', icon: '🏃' }, { name: '游泳', icon: '🏊' },
+    { name: '椭圆机', icon: '🏃' }, { name: '游泳', icon: '🏊' }, { name: '45分钟燃脂操', icon: '🔥' },
   ],
 }
 
@@ -79,8 +83,11 @@ export function ExercisePage() {
     setTimerRunning(true)
   }
 
-  const selectExercise = (name: string) => {
+  const selectExercise = (name: string, part?: ExercisePart, suggestedDuration?: number) => {
     setExerciseName(name)
+    if (part) setSelectedPart(part)
+    if (suggestedDuration) setDuration(String(suggestedDuration))
+    else if (part) setDuration('')
     setShowLibrary(false)
     const last = history[name]?.[0]
     if (last?.weight_kg) setWeight(String(last.weight_kg))
@@ -120,6 +127,8 @@ export function ExercisePage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">运动记录</h2>
+
+      <WeeklyTrainingPlan onSelectExercise={selectExercise} records={records} onAddSet={addRecord} />
 
       {/* Summary */}
       <div className="grid grid-cols-4 gap-3">
@@ -209,7 +218,7 @@ export function ExercisePage() {
           <Plus size={16} />添加一组
         </button>
         <p className="text-center text-[10px] text-gray-400">
-          每点一次记录<strong>一组</strong>，重量会保留方便连续添加
+          力量动作每点一次记录<strong>一组</strong>；有氧填入总时长后记录一次
         </p>
       </div>
 

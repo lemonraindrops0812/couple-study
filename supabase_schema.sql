@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS study_sessions (
   start_time TIMESTAMPTZ NOT NULL,
   end_time TIMESTAMPTZ,
   duration_minutes INTEGER,
+  study_summary TEXT,
+  study_reflection TEXT,
   date DATE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -75,6 +77,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   title TEXT NOT NULL,
   date DATE NOT NULL,
   completed BOOLEAN DEFAULT false,
+  category TEXT NOT NULL DEFAULT '其他',
+  estimated_minutes INTEGER,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -87,10 +91,13 @@ CREATE TABLE IF NOT EXISTS diet_records (
   id BIGSERIAL PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   date DATE NOT NULL,
-  meal_type TEXT NOT NULL CHECK (meal_type IN ('breakfast', 'lunch', 'dinner')),
+  meal_type TEXT NOT NULL CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
   food_name TEXT NOT NULL,
   calories INTEGER,
   protein NUMERIC(5,1),
+  carbs NUMERIC(6,1),
+  fat NUMERIC(6,1),
+  weight_g NUMERIC(7,1),
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -127,7 +134,7 @@ ALTER TABLE exercise_records ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can read all profiles" ON profiles;
 CREATE POLICY "Users can read all profiles" ON profiles FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
-CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- Live Activities
 DROP POLICY IF EXISTS "Users can read all live activities" ON live_activities;
@@ -146,6 +153,8 @@ DROP POLICY IF EXISTS "Users can insert own study sessions" ON study_sessions;
 CREATE POLICY "Users can insert own study sessions" ON study_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Users can update own study sessions" ON study_sessions;
 CREATE POLICY "Users can update own study sessions" ON study_sessions FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own study sessions" ON study_sessions;
+CREATE POLICY "Users can delete own study sessions" ON study_sessions FOR DELETE USING (auth.uid() = user_id);
 
 -- Tasks
 DROP POLICY IF EXISTS "Users can read all tasks" ON tasks;
@@ -182,15 +191,22 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Allow authenticated users to upload avatars
+-- Users upload their own avatar under <auth user id>/avatar.<extension>.
 DROP POLICY IF EXISTS "Users can upload avatars" ON storage.objects;
-CREATE POLICY "Users can upload avatars"
-  ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "avatars_insert" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_update" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_public_read" ON storage.objects;
+CREATE POLICY "avatars_insert"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'avatars' AND split_part(name, '/', 1) = auth.uid()::text);
+CREATE POLICY "avatars_update"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'avatars' AND split_part(name, '/', 1) = auth.uid()::text)
+  WITH CHECK (bucket_id = 'avatars' AND split_part(name, '/', 1) = auth.uid()::text);
 
 -- Allow public read access to avatars
 DROP POLICY IF EXISTS "Public read avatars" ON storage.objects;
-CREATE POLICY "Public read avatars"
+CREATE POLICY "avatars_public_read"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'avatars');
 
@@ -216,4 +232,3 @@ DROP POLICY IF EXISTS "Users can insert own mood entries" ON mood_entries;
 CREATE POLICY "Users can insert own mood entries" ON mood_entries FOR INSERT WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Users can update own mood entries" ON mood_entries;
 CREATE POLICY "Users can update own mood entries" ON mood_entries FOR UPDATE USING (auth.uid() = user_id);
-

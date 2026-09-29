@@ -4,12 +4,12 @@ import { useAuth } from './useAuth'
 import { getToday } from '../lib/date'
 import type { Task } from '../types'
 
-export function useTasks() {
+export function useTasks(selectedDate = getToday()) {
   const { user } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
 
-  const today = getToday()
+  const today = selectedDate
 
   const fetchTasks = useCallback(async () => {
     if (!user) return
