@@ -18,7 +18,10 @@ export function TodayTimeline({ data, onDelete, onUpdated, dateLabel = '所选�
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">📋 {dateLabel}学习记录</h3>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">📋 {dateLabel}学习记录</h3>
+        <span className="text-[10px] text-gray-400">自己的已结束记录可编辑时间</span>
+      </div>
 
       {data.todayTimeline.length ? <div className="space-y-2">
         {data.todayTimeline.map((item) => (
@@ -35,12 +38,18 @@ export function TodayTimeline({ data, onDelete, onUpdated, dateLabel = '所选�
             </div>
             <span className="text-[11px] text-gray-400 shrink-0">{item.duration_minutes || 0}min</span>
             <span className="text-[10px] text-gray-300 shrink-0 w-12 text-right">{item.nickname}</span>
-            {item.user_id === user?.id && (
+            {item.user_id === user?.id && item.end_time && (
               <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => setEditingSession(item)} className="text-gray-300 hover:text-teal-600 transition-colors" title="修改时间" aria-label="修改时间">
-                  <Pencil size={13} />
+                <button
+                  onClick={() => setEditingSession(item)}
+                  className="inline-flex items-center gap-1 rounded-md border border-teal-100 bg-teal-50 px-1.5 py-1 text-[10px] font-medium text-teal-700 transition-colors hover:border-teal-200 hover:bg-teal-100"
+                  title="修改起止时间"
+                  aria-label="修改起止时间"
+                >
+                  <Pencil size={11} />
+                  <span>编辑时间</span>
                 </button>
-                <button onClick={() => onDelete(item.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="删除记录" aria-label="删除记录">
+                <button onClick={() => onDelete(item.id)} className="rounded-md p-1 text-gray-300 transition-colors hover:bg-rose-50 hover:text-red-400" title="删除记录" aria-label="删除记录">
                   <Trash2 size={13} />
                 </button>
               </div>

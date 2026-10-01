@@ -168,11 +168,17 @@ export function StatsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400">{s.duration_minutes || 0}min</span>
-                      {s.user_id === user?.id && <>
-                        <button onClick={() => setEditingSession(s)} className="text-gray-300 hover:text-teal-600 transition-colors" title="修改起止时间" aria-label="修改起止时间">
-                          <Pencil size={12} />
+                      {s.user_id === user?.id && s.end_time && <>
+                        <button
+                          onClick={() => setEditingSession(s)}
+                          className="inline-flex items-center gap-1 rounded-md border border-teal-100 bg-teal-50 px-1.5 py-1 text-[10px] font-medium text-teal-700 transition-colors hover:border-teal-200 hover:bg-teal-100"
+                          title="修改起止时间"
+                          aria-label="修改起止时间"
+                        >
+                          <Pencil size={11} />
+                          <span>编辑时间</span>
                         </button>
-                        <button onClick={() => deleteSession(s.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="删除记录" aria-label="删除记录">
+                        <button onClick={() => deleteSession(s.id)} className="rounded-md p-1 text-gray-300 transition-colors hover:bg-rose-50 hover:text-red-400" title="删除记录" aria-label="删除记录">
                           <Trash2 size={12} />
                         </button>
                       </>}
