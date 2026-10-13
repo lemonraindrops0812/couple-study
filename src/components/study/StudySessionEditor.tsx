@@ -18,15 +18,18 @@ function toDateTimeLocal(value: string) {
 }
 
 export function StudySessionEditor({ session, onClose, onSaved }: Props) {
-  const { user } = useAuth()
+  const { user, partner } = useAuth()
+  const isOwnSession = session.user_id === user?.id
+  const isPartnerSession = session.user_id === partner?.id
+  const editorName = isPartnerSession ? (partner?.nickname || '对方') : '自己的'
   const [startValue, setStartValue] = useState(() => toDateTimeLocal(session.start_time))
   const [endValue, setEndValue] = useState(() => toDateTimeLocal(session.end_time || session.start_time))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const save = async () => {
-    if (!user || session.user_id !== user.id) {
-      setError('只能修改自己的学习记录。')
+    if (!user || (!isOwnSession && !isPartnerSession)) {
+      setError('只能修改自己的或伴侣的学习记录。')
       return
     }
     if (!session.end_time) {
@@ -48,26 +51,35 @@ export function StudySessionEditor({ session, onClose, onSaved }: Props) {
     setSaving(true)
     setError('')
     const durationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000))
-    const { data, error: updateError } = await supabase
-      .from('study_sessions')
-      .update({
-        start_time: start.toISOString(),
-        end_time: end.toISOString(),
-        duration_minutes: durationMinutes,
-        // Keep time-based statistics in the logical study day of the session's start.
-        date: getToday(start),
-      })
-      .eq('id', session.id)
-      .eq('user_id', user.id)
-      .select()
-      .single()
+    const update = {
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+      duration_minutes: durationMinutes,
+      // Keep time-based statistics in the logical study day of the session's start.
+      date: getToday(start),
+    }
+    const result = isOwnSession
+      ? await supabase
+        .from('study_sessions')
+        .update(update)
+        .eq('id', session.id)
+        .eq('user_id', user.id)
+        .select()
+        .single()
+      : await supabase
+        .rpc('update_partner_study_session', {
+          p_session_id: session.id,
+          p_start_time: update.start_time,
+          p_end_time: update.end_time,
+        })
+        .single()
 
     setSaving(false)
-    if (updateError || !data) {
-      setError(`保存失败：${updateError?.message || '未找到这条记录'}`)
+    if (result.error || !result.data) {
+      setError(`保存失败：${result.error?.message || '未找到这条记录'}`)
       return
     }
-    onSaved(data as StudySession)
+    onSaved(result.data as StudySession)
   }
 
   return (
@@ -76,7 +88,7 @@ export function StudySessionEditor({ session, onClose, onSaved }: Props) {
       <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h3 id="edit-study-title" className="text-base font-semibold text-gray-900">调整学习时间</h3>
+            <h3 id="edit-study-title" className="text-base font-semibold text-gray-900">调整{editorName}学习时间</h3>
             <p className="mt-0.5 text-xs text-gray-400 truncate">{session.subject}</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="关闭">

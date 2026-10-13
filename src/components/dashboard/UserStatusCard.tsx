@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Clock, CheckCircle2, Zap, Sprout, Plus, Trash2 } from 'lucide-react'
+import { Clock, CheckCircle2, Zap, Sprout, Plus, Trash2, Square } from 'lucide-react'
 import { getToday } from '../../lib/date'
 import type { StudySession } from '../../types'
 
@@ -8,6 +8,8 @@ interface Props {
   userId: string; nickname: string; avatarUrl?: string; isMe: boolean
   liveActivity: { subject: string; start_time: string } | null
   streakDays: number
+  onForceEnd?: () => void
+  isForceEnding?: boolean
 }
 
 interface DoneItem {
@@ -136,7 +138,7 @@ function fmtRelative(dateStr: string): string {
   return Math.floor(diffH / 24) + '天前'
 }
 
-export function UserStatusCard({ userId, nickname, avatarUrl, isMe, liveActivity, streakDays }: Props) {
+export function UserStatusCard({ userId, nickname, avatarUrl, isMe, liveActivity, streakDays, onForceEnd, isForceEnding = false }: Props) {
   const [studyMinutes, setStudyMinutes] = useState(0)
   const [studyCount, setStudyCount] = useState(0)
   const [tasksDone, setTasksDone] = useState(0)
@@ -224,12 +226,24 @@ export function UserStatusCard({ userId, nickname, avatarUrl, isMe, liveActivity
 
       {/* Status */}
       {liveActivity ? (
-        <div className="bg-emerald-50 rounded-xl px-4 py-3 flex items-center gap-2">
+        <div className="bg-emerald-50 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2">
           <span className="text-lg">📚</span>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-emerald-700 truncate">正在专心学习 {liveActivity.subject}</p>
             <p className="text-[10px] text-emerald-500">已经坚持 {fmtTime(elapsed)}</p>
           </div>
+          </div>
+          {!isMe && onForceEnd && (
+            <button
+              type="button"
+              onClick={onForceEnd}
+              disabled={isForceEnding}
+              className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Square size={12} /> {isForceEnding ? '正在结束…' : '替他结束计时'}
+            </button>
+          )}
         </div>
       ) : (
         <div className="bg-amber-50 rounded-xl px-4 py-3 flex items-center gap-2">

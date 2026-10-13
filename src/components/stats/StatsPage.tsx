@@ -157,8 +157,11 @@ export function StatsPage() {
             <div className="bg-white rounded-xl border border-gray-100 p-5">
               <h3 className="text-sm font-semibold text-gray-700 mb-4">最近学习记录</h3>
               <div className="space-y-1 max-h-60 overflow-y-auto">
-                {[...mySessions, ...partnerSessions].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()).slice(0, 20).map(s => (
-                  <div key={s.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0 group">
+                {[...mySessions, ...partnerSessions].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()).slice(0, 20).map(s => {
+                  const isOwnSession = s.user_id === user?.id
+                  const isPartnerSession = s.user_id === partner?.id
+                  const canEditSession = Boolean(s.end_time) && (isOwnSession || isPartnerSession)
+                  return <div key={s.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0 group">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-gray-400">{s.date.slice(5)}</span>
@@ -168,23 +171,23 @@ export function StatsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400">{s.duration_minutes || 0}min</span>
-                      {s.user_id === user?.id && s.end_time && <>
+                      {canEditSession && <>
                         <button
                           onClick={() => setEditingSession(s)}
-                          className="inline-flex items-center gap-1 rounded-md border border-teal-100 bg-teal-50 px-1.5 py-1 text-[10px] font-medium text-teal-700 transition-colors hover:border-teal-200 hover:bg-teal-100"
+                          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-medium transition-colors ${isPartnerSession ? 'border border-amber-100 bg-amber-50 text-amber-700 hover:border-amber-200 hover:bg-amber-100' : 'border border-teal-100 bg-teal-50 text-teal-700 hover:border-teal-200 hover:bg-teal-100'}`}
                           title="修改起止时间"
                           aria-label="修改起止时间"
                         >
                           <Pencil size={11} />
-                          <span>编辑时间</span>
+                          <span>{isPartnerSession ? '代为编辑' : '编辑时间'}</span>
                         </button>
-                        <button onClick={() => deleteSession(s.id)} className="rounded-md p-1 text-gray-300 transition-colors hover:bg-rose-50 hover:text-red-400" title="删除记录" aria-label="删除记录">
+                        {isOwnSession && <button onClick={() => deleteSession(s.id)} className="rounded-md p-1 text-gray-300 transition-colors hover:bg-rose-50 hover:text-red-400" title="删除记录" aria-label="删除记录">
                           <Trash2 size={12} />
-                        </button>
+                        </button>}
                       </>}
                     </div>
                   </div>
-                ))}
+                })}
               </div>
             </div>
           </div>

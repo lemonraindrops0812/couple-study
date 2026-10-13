@@ -24,6 +24,7 @@ import { DualGrowth } from './DualGrowth'
 import { TodayTimeline } from './TodayTimeline'
 import { getToday, shiftDateKey } from '../../lib/date'
 import { useSharedGreetings } from '../../hooks/useSharedGreetings'
+import { supabase } from '../../lib/supabase'
 
 const DEFAULT_GREETINGS = [
   '一个人脑不亚于一个宇宙 🌌',
@@ -77,6 +78,8 @@ export function DashboardPage() {
   const { greetings, error: greetingsError, saveGreetings } = useSharedGreetings(legacyGreetings)
   const [editGreetings, setEditGreetings] = useState(false)
   const [newGreeting, setNewGreeting] = useState('')
+  const [isForceEndingPartner, setIsForceEndingPartner] = useState(false)
+  const [partnerTimerError, setPartnerTimerError] = useState('')
   const greeting = useMemo(() => {
     const list = greetings.length > 0 ? greetings : DEFAULT_GREETINGS
     const key = `${todayKey}:${list.join('|')}`
@@ -100,6 +103,22 @@ export function DashboardPage() {
   }
   const handleDeleteSession = (id: string) => {
     if (window.confirm('确定删除这条学习记录吗？此操作无法撤销。')) void deleteSession(id)
+  }
+  const forceEndPartnerStudy = async () => {
+    if (!partner || !partnerActivity || isForceEndingPartner) return
+    const confirmed = window.confirm(`确定替${partner.nickname}结束本次“${partnerActivity.subject}”计时吗？\n会按现在的时间保存为他的学习记录。`)
+    if (!confirmed) return
+
+    setIsForceEndingPartner(true)
+    setPartnerTimerError('')
+    const { error } = await supabase.rpc('force_end_partner_study', { p_partner_id: partner.id })
+    setIsForceEndingPartner(false)
+    if (error) {
+      setPartnerTimerError(`结束失败：${error.message}`)
+      return
+    }
+    window.dispatchEvent(new Event('couple-study:activity-changed'))
+    void fetchStudyData()
   }
 
   return (
@@ -203,6 +222,11 @@ export function DashboardPage() {
           正在查看 {formatDate(selectedDate)} 的历史记录；进行中的学习状态与倒计时仅在“今天”显示，不会受到影响。
         </div>
       )}
+      {partnerTimerError && (
+        <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-2.5 text-xs text-rose-700">
+          {partnerTimerError}
+        </div>
+      )}
 
       {/* ── 三人行 ── */}
       {viewingToday && <>
@@ -212,7 +236,7 @@ export function DashboardPage() {
             <CoupleZone data={studyData} />
             <GrowthTree data={studyData} />
           </div>
-          {partner && <UserStatusCard userId={partner.id} nickname={partner.nickname} avatarUrl={partner.avatar_url} isMe={false} liveActivity={partnerActivity} streakDays={studyData.partnerStreakDays} />}
+          {partner && <UserStatusCard userId={partner.id} nickname={partner.nickname} avatarUrl={partner.avatar_url} isMe={false} liveActivity={partnerActivity} streakDays={studyData.partnerStreakDays} onForceEnd={forceEndPartnerStudy} isForceEnding={isForceEndingPartner} />}
         </div>
         <FocusStatus />
       </>}
